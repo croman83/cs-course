@@ -2,8 +2,8 @@
 
 // game control
 var stage = 0;
-var bgCanvas;
 var debug = false;
+var items = 0;
 
 // char
 var charX;
@@ -12,7 +12,164 @@ var charWidth = 50;
 var charHeight = 55;
 var dead = false;
 
-// platforms
+// stage map
+var gameMap = {
+    width: 2, // related to width
+    height: 1,// related to height
+    collisions: [],
+    collectable: [
+        {
+            x: 20,
+            y: 10,
+            type: 'energy'
+        },
+        {
+            x: 6,
+            y: 90,
+            type: 'energy'
+        },
+        {
+            x: 190,
+            y: 65,
+            type: 'energy'
+        }
+    ],
+    danger: [
+        {
+            x: 1,
+            y: 90,
+        },
+    ],
+    textures: [
+        {
+            x: 115,
+            y: 65,
+            width: 85,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 105,
+            y: 75,
+            width: 10,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 100,
+            y: 85,
+            width: 4,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 0,
+            y: 40,
+            width: 4,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 35,
+            y: 70,
+            width: 3,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 0,
+            y: 50,
+            width: 10,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 15,
+            y: 10,
+            width: 10,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 5,
+            y: 20,
+            width: 10,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 75,
+            y: 85,
+            width: 10,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 15,
+            y: 60,
+            width: 10,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 5,
+            y: 75,
+            width: 8,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 40,
+            y: 80,
+            width: 20,
+            height: 5,
+            texture: 'platform',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 0,
+            y: 90,
+            width: 10,
+            height: 10,
+            texture: 'ground',
+            fig: 'rect',
+            feel: true
+        },
+        {
+            x: 10,
+            y: 95,
+            width: 190,
+            height: 5,
+            texture: 'water',
+            fig: 'rect',
+            feel: false
+        }
+
+    ]
+}
 
 // gravity
 var jump = true;
@@ -27,553 +184,717 @@ var minHeight;
 
 // collision
 var collisionMap = [];
-var collectingMap = [];
-var dangerMap = [];
 
-// images for textures
-var darkBlock;
+// utils
+var interval = 0;
+var intervalDirection = 1;
+var scrollX = 0;
+var scrollY = 0;
 
 // endregion
 
 // region setup
-function preload() {
-	bg = loadImage('assets/bg.png')
-	lightBlock = loadImage('assets/block2.png')
-	lightBlock1 = loadImage('assets/block1.png')
-	darkBlock = loadImage('assets/block4.png')
-	darkBlock1 = loadImage('assets/block5.png')
-	blockB = loadImage('assets/block-b.png')
-	almaz = loadImage('assets/almaz.png')
-	water = loadImage('assets/water.png')
-	water1 = loadImage('assets/water1.png')
-	danger = loadImage('assets/d.png')
-}
 function setup() {
-	createCanvas(windowWidth, windowHeight);
-	rectMode(CENTER);
-	textAlign(CENTER);
-	bgCanvas = createGraphics(windowWidth, windowHeight);
-	bgCanvas.noFill();
-	bgCanvas.noStroke();
-	bgCanvas.image(bg, 0, 0, windowWidth,windowHeight)
-	init();
+    createCanvas(gameMap.width * windowWidth, gameMap.height * windowHeight);
+
+    rectMode(CENTER);
+    textAlign(CENTER);
+
+    initGame();
 }
+
 // endregion
 
 
 // region draw
 function draw() {
-	clear();
-	gravity()
+    clear();
+    background(152)
 
-	image(bgCanvas, 0, 0)
+    gravity();
 
-	if (stage === 0) {
-		game();
-	} else if (stage === 1) {
-		fill(255,0,0,100);
-		rect(windowWidth/2,windowHeight/2, windowWidth, windowHeight)
-		fill(255,255,255)
-		textSize(100);
-		text('Game over',windowWidth/2,windowHeight/2);
-		textSize(20);
-		text('Press any button',windowWidth/2,windowHeight/2 + 50);
-	}
-	if (debug) {
-		fill(255,0,0,100)
-		circle(charX, charY, 20)
-		noFill()
-		initCollisionMap(collisionMap)
-	}
+    renderMap(gameMap)
+
+    if (stage === 0) {
+        game();
+    } else if (stage === 1) {
+        gameOver();
+    }
+    if (debug) {
+        highlightCharDebug()
+    }
 }
+
 // endregion
 
 
 // region robot layouts
-function charIdle(x1,y1) {
-	var y = y1+10;
-	var x = x1;
-	fill(74,74,74)
-	stroke(14);
-	circle(x, y - 40, 30);
+function charIdle(x1, y1) {
+    var y = y1 + 10;
+    var x = x1;
+    fill(74, 74, 74)
+    stroke(14);
+    circle(x, y - 40, 30);
 
 
+    fill(255, 0, 0)
+    ellipse(x, y - 56, 14, 6);
+    ellipse(x, y - 35, 12, 6);
+    circle(x + 17, y - 31, 6)
+    circle(x - 17, y - 31, 6)
 
-	fill(255,0,0)
-	ellipse(x , y - 56, 14, 6);
-	ellipse(x, y - 35, 12,6);
-	circle(x + 17,y - 31,6)
-	circle(x - 17,y - 31,6)
+    fill(255, 255, 0)
+    beginShape();
+    vertex(x - 7, y - 28)
+    vertex(x - 5, y - 18)
+    vertex(x - 2, y - 20)
+    vertex(x, y - 15)
+    vertex(x + 2, y - 20)
+    vertex(x + 5, y - 18)
+    vertex(x + 7, y - 28)
+    endShape()
 
-	fill(255,255,0)
-	beginShape();
-	vertex(x-7, y-28)
-	vertex(x-5, y-18)
-	vertex(x-2, y-20)
-	vertex(x, y-15)
-	vertex(x+2, y-20)
-	vertex(x+5, y-18)
-	vertex(x+7, y-28)
-	endShape()
+    fill(62, 62, 62)
+    rect(x, y - 54, 14, 4);
+    rect(x, y - 26, 14, 4);
+    circle(x - 14, y - 45, 8)
+    circle(x - 16, y - 40, 8)
+    circle(x - 17, y - 35, 8)
 
-	fill(62,62,62)
-	rect(x, y - 54, 14, 4);
-	rect(x, y - 26, 14, 4);
-	circle(x - 14,y - 45,8)
-	circle(x - 16,y - 40,8)
-	circle(x - 17,y - 35,8)
+    circle(x + 14, y - 45, 8)
+    circle(x + 16, y - 40, 8)
+    circle(x + 17, y - 35, 8)
 
-	circle(x + 14,y - 45,8)
-	circle(x + 16,y - 40,8)
-	circle(x + 17,y - 35,8)
-
-	noStroke();
-	noFill();
+    noStroke();
+    noFill();
 }
 
-function jumpFront(x1,y1) {
-	var y = y1-10;
-	var x = x1;
-	fill(74,74,74)
-	stroke(14);
-	circle(x, y - 40, 30);
+function charDead(x1, y1) {
+    stage = 1;
+    gravityDirection = 0
+    dead = true;
 
+    push()
+    var y = y1 + 25;
+    var x = x1;
 
+    fill(74, 74, 74)
+    stroke(14);
+    circle(x, y - 40, 30);
 
-	fill(255,0,0)
-	ellipse(x , y - 56, 14, 6);
-	ellipse(x, y - 35, 12,6);
-	circle(x + 17,y - 31,6)
-	circle(x - 17,y - 31,6)
+    fill(255, 255, 0)
 
-	fill(255,255,0)
-	beginShape();
-	vertex(x-7, y-28)
-	vertex(x-5, y-12)
-	vertex(x-2, y-16)
-	vertex(x, y)
-	vertex(x+2, y-16)
-	vertex(x+5, y-12)
-	vertex(x+7, y-28)
-	endShape()
+    fill(62, 62, 62)
+    rect(x, y - 54, 14, 4);
+    rect(x, y - 26, 14, 4);
+    circle(x - 15, y - 30, 8)
+    circle(x - 16, y - 25, 8)
+    circle(x - 17, y - 35, 8)
 
-	fill(62,62,62)
-	rect(x, y - 54, 14, 4);
-	rect(x, y - 26, 14, 4);
-	circle(x - 14,y - 45,8)
-	circle(x - 16,y - 40,8)
-	circle(x - 17,y - 35,8)
+    circle(x + 15, y - 30, 8)
+    circle(x + 16, y - 25, 8)
+    circle(x + 17, y - 35, 8)
 
-	circle(x + 14,y - 45,8)
-	circle(x + 16,y - 40,8)
-	circle(x + 17,y - 35,8)
-
-	noStroke();
-	noFill();
+    pop()
 }
 
-function moveLeft(x1,y1) {
-	var y = y1+10;
-	var x = x1;
-	fill(74,74,74)
-	stroke(14);
-	ellipse(x, y - 40, 18,30);
+function jumpFront(x1, y1) {
+    var y = y1 - 10;
+    var x = x1;
+    fill(74, 74, 74)
+    stroke(14);
+    circle(x, y - 40, 30);
 
 
+    fill(255, 0, 0)
+    ellipse(x, y - 56, 14, 6);
+    ellipse(x, y - 35, 12, 6);
+    circle(x + 17, y - 31, 6)
+    circle(x - 17, y - 31, 6)
 
-	fill(255,0,0)
-	ellipse(x - 4 , y - 54, 7, 6);
-	// ellipse(x, y - 35, 7,6);
-	circle(x,y - 31,6)
+    fill(255, 255, 0)
+    beginShape();
+    vertex(x - 7, y - 28)
+    vertex(x - 5, y - 12)
+    vertex(x - 2, y - 16)
+    vertex(x, y)
+    vertex(x + 2, y - 16)
+    vertex(x + 5, y - 12)
+    vertex(x + 7, y - 28)
+    endShape()
 
-	fill(255,255,0)
-	beginShape();
-	vertex(x-5, y-28)
-	vertex(x-4, y-18)
-	vertex(x-2, y-20)
-	vertex(x, y-15)
-	vertex(x+2, y-20)
-	vertex(x+4, y-18)
-	vertex(x+5, y-28)
-	endShape()
+    fill(62, 62, 62)
+    rect(x, y - 54, 14, 4);
+    rect(x, y - 26, 14, 4);
+    circle(x - 14, y - 45, 8)
+    circle(x - 16, y - 40, 8)
+    circle(x - 17, y - 35, 8)
 
-	fill(62,62,62)
-	rect(x - 4, y - 52, 7, 4);
-	rect(x, y - 26, 10, 4);
+    circle(x + 14, y - 45, 8)
+    circle(x + 16, y - 40, 8)
+    circle(x + 17, y - 35, 8)
 
-	circle(x + 4,y - 45,8)
-	circle(x + 5,y - 40,8)
-	circle(x + 4,y - 35,8)
-
-	noStroke();
-	noFill();
+    noStroke();
+    noFill();
 }
 
-function moveRight(x1,y1) {
-	var y = y1+10;
-	var x = x1;
-	fill(74,74,74)
-	stroke(14);
-	ellipse(x, y - 40, 18,30);
+function moveLeft(x1, y1) {
+    var y = y1 + 10;
+    var x = x1;
+    fill(74, 74, 74)
+    stroke(14);
+    ellipse(x, y - 40, 18, 30);
 
 
+    fill(255, 0, 0)
+    ellipse(x - 4, y - 54, 7, 6);
+    // ellipse(x, y - 35, 7,6);
+    circle(x, y - 31, 6)
 
-	fill(255,0,0)
-	ellipse(x + 4 , y - 54, 7, 6);
-	// ellipse(x, y - 35, 7,6);
-	circle(x,y - 31,6)
+    fill(255, 255, 0)
+    beginShape();
+    vertex(x - 5, y - 28)
+    vertex(x - 4, y - 18)
+    vertex(x - 2, y - 20)
+    vertex(x, y - 15)
+    vertex(x + 2, y - 20)
+    vertex(x + 4, y - 18)
+    vertex(x + 5, y - 28)
+    endShape()
 
-	fill(255,255,0)
-	beginShape();
-	vertex(x-5, y-28)
-	vertex(x-4, y-18)
-	vertex(x-2, y-20)
-	vertex(x, y-15)
-	vertex(x+2, y-20)
-	vertex(x+4, y-18)
-	vertex(x+5, y-28)
-	endShape()
+    fill(62, 62, 62)
+    rect(x - 4, y - 52, 7, 4);
+    rect(x, y - 26, 10, 4);
 
-	fill(62,62,62)
-	rect(x + 4, y - 52, 7, 4);
-	rect(x, y - 26, 10, 4);
+    circle(x + 4, y - 45, 8)
+    circle(x + 5, y - 40, 8)
+    circle(x + 4, y - 35, 8)
 
-	circle(x - 4,y - 45,8)
-	circle(x - 5,y - 40,8)
-	circle(x - 4,y - 35,8)
-
-	noStroke();
-	noFill();
+    noStroke();
+    noFill();
 }
 
-function jumpLeft(x1,y1) {
-	var y = y1-10;
-	var x = x1;
-	fill(74,74,74)
-	stroke(14);
-	ellipse(x, y - 40, 18,30);
+function moveRight(x1, y1) {
+    var y = y1 + 10;
+    var x = x1;
+    fill(74, 74, 74)
+    stroke(14);
+    ellipse(x, y - 40, 18, 30);
 
 
+    fill(255, 0, 0)
+    ellipse(x + 4, y - 54, 7, 6);
+    // ellipse(x, y - 35, 7,6);
+    circle(x, y - 31, 6)
 
-	fill(255,0,0)
-	ellipse(x - 4 , y - 54, 7, 6);
-	// ellipse(x, y - 35, 7,6);
-	circle(x,y - 31,6)
+    fill(255, 255, 0)
+    beginShape();
+    vertex(x - 5, y - 28)
+    vertex(x - 4, y - 18)
+    vertex(x - 2, y - 20)
+    vertex(x, y - 15)
+    vertex(x + 2, y - 20)
+    vertex(x + 4, y - 18)
+    vertex(x + 5, y - 28)
+    endShape()
 
-	fill(255,255,0)
-	beginShape();
-	vertex(x-5, y-28)
-	vertex(x-4, y-12)
-	vertex(x-2, y-16)
-	vertex(x, y)
-	vertex(x+2, y-16)
-	vertex(x+4, y-12)
-	vertex(x+5, y-28)
-	endShape()
+    fill(62, 62, 62)
+    rect(x + 4, y - 52, 7, 4);
+    rect(x, y - 26, 10, 4);
 
-	fill(62,62,62)
-	rect(x - 4, y - 52, 7, 4);
-	rect(x, y - 26, 10, 4);
+    circle(x - 4, y - 45, 8)
+    circle(x - 5, y - 40, 8)
+    circle(x - 4, y - 35, 8)
 
-	circle(x + 4,y - 45,8)
-	circle(x + 5,y - 40,8)
-	circle(x + 4,y - 35,8)
-
-	noStroke();
-	noFill();
+    noStroke();
+    noFill();
 }
 
-function jumpRight(x1,y1) {
-	var y = y1-10;
-	var x = x1;
-	fill(74,74,74)
-	stroke(14);
-	ellipse(x, y - 40, 18,30);
+function jumpLeft(x1, y1) {
+    var y = y1 - 10;
+    var x = x1;
+    fill(74, 74, 74)
+    stroke(14);
+    ellipse(x, y - 40, 18, 30);
 
 
+    fill(255, 0, 0)
+    ellipse(x - 4, y - 54, 7, 6);
+    // ellipse(x, y - 35, 7,6);
+    circle(x, y - 31, 6)
 
-	fill(255,0,0)
-	ellipse(x + 4 , y - 54, 7, 6);
-	circle(x,y - 31,6)
+    fill(255, 255, 0)
+    beginShape();
+    vertex(x - 5, y - 28)
+    vertex(x - 4, y - 12)
+    vertex(x - 2, y - 16)
+    vertex(x, y)
+    vertex(x + 2, y - 16)
+    vertex(x + 4, y - 12)
+    vertex(x + 5, y - 28)
+    endShape()
 
-	fill(255,255,0)
-	beginShape();
-	vertex(x-5, y-28)
-	vertex(x-4, y-12)
-	vertex(x-2, y-16)
-	vertex(x, y)
-	vertex(x+2, y-16)
-	vertex(x+4, y-12)
-	vertex(x+5, y-28)
-	endShape()
+    fill(62, 62, 62)
+    rect(x - 4, y - 52, 7, 4);
+    rect(x, y - 26, 10, 4);
 
-	fill(62,62,62)
-	rect(x + 4, y - 52, 7, 4);
-	rect(x, y - 26, 10, 4);
+    circle(x + 4, y - 45, 8)
+    circle(x + 5, y - 40, 8)
+    circle(x + 4, y - 35, 8)
 
-	circle(x - 4,y - 45,8)
-	circle(x - 5,y - 40,8)
-	circle(x - 4,y - 35,8)
-
-	noStroke();
-	noFill();
+    noStroke();
+    noFill();
 }
+
+function jumpRight(x1, y1) {
+    var y = y1 - 10;
+    var x = x1;
+    fill(74, 74, 74)
+    stroke(14);
+    ellipse(x, y - 40, 18, 30);
+
+
+    fill(255, 0, 0)
+    ellipse(x + 4, y - 54, 7, 6);
+    circle(x, y - 31, 6)
+
+    fill(255, 255, 0)
+    beginShape();
+    vertex(x - 5, y - 28)
+    vertex(x - 4, y - 12)
+    vertex(x - 2, y - 16)
+    vertex(x, y)
+    vertex(x + 2, y - 16)
+    vertex(x + 4, y - 12)
+    vertex(x + 5, y - 28)
+    endShape()
+
+    fill(62, 62, 62)
+    rect(x + 4, y - 52, 7, 4);
+    rect(x, y - 26, 10, 4);
+
+    circle(x - 4, y - 45, 8)
+    circle(x - 5, y - 40, 8)
+    circle(x - 4, y - 35, 8)
+
+    noStroke();
+    noFill();
+}
+
 // endregion
 
 // region events
 function keyPressed() {
-	if (keyCode === 32 && !jumpHeight && !jump && stage === 0) {
-		jump = true;
-		gravityDirection = -1;
-		velocity = acceleration;
-		jumpHeight = jumpPower;
-	}
-	if (stage === 1) {
-		stage = 0;
-		charX = windowWidth / 2;
-		charY = windowHeight / 2;
-		dead = false;
-	}
+    if (keyCode === 32 && !jumpHeight && !jump && stage === 0) {
+        jump = true;
+        gravityDirection = -1;
+        velocity = acceleration;
+        jumpHeight = jumpPower;
+    }
+    if (stage === 1) {
+        stage = 0;
+        charX = windowWidth / 2;
+        charY = 0;
+        scrollX = 0;
+        scrollY = 0;
+        dead = false;
+    }
 }
+
 function keyReleased() {
 
 }
+
 // endregion
 
 // region run once
-function init() {
-	initCollisionMap(collisionMap)
-	initCollectionMap(collectingMap)
-	initDangerMap(dangerMap)
-	charX = windowWidth / 2;
-	charY = windowHeight - 200;
-	minHeight = windowHeight/4*3;
+function initGame() {
+    charX = windowWidth / 2;
+    charY = 0;
+    minHeight = windowHeight / 4 * 3;
 
-	drawFloor();
-	drawClouds();
-	drawPlatform(windowWidth - 300, windowHeight/2, 300, 50)
-	drawPlatform(windowWidth - 500, windowHeight/3*2, 200, 50)
-	drawBox(200, windowHeight - 200, 50);
-	drawBox(250, windowHeight - 200, 50);
-	drawBox(300, windowHeight - 200, 50);
-	drawBox(270, windowHeight - 250, 50);
-	charIdle(charX, charY);
+    jumpFront(charX, charY);
 }
+
 // endregion
 
 // region logic
 function gravity() {
-	var collision;
+    var collision;
 
-	if (gravityDirection*velocity > 0) {
-		var c1 = isCollision(charX+charWidth/2, charY, 'fall', gravityDirection*velocity)
-		var c2 = isCollision(charX-charHeight/2, charY, 'fall', gravityDirection*velocity)
-		var c3 = isCollision(charX, charY, 'fall', gravityDirection*velocity)
-		collision = c1||c2||c3
-	} else {
-		collision = isCollision(charX, charY, 'jump', charHeight + gravityDirection*velocity)
-	}
+    if (gravityDirection * velocity > 0) {
+        var c1 = isCollision(charX + charWidth / 2, charY, 'fall', gravityDirection * velocity)
+        var c2 = isCollision(charX - charHeight / 2, charY, 'fall', gravityDirection * velocity)
+        var c3 = isCollision(charX, charY, 'fall', gravityDirection * velocity)
+        collision = c1 || c2 || c3
+    } else {
+        collision = isCollision(charX, charY, 'jump', charHeight + gravityDirection * velocity)
+    }
 
-	if (!collision) {
-		if (charY + (gravityDirection*velocity) > windowHeight) {
-			stage = 1;
-			dead = true;
-		}
-		if (charY + (gravityDirection*velocity)<0) {
-			charY = charY;
-		}
-		charY = charY + (gravityDirection*velocity);
-	} else {
-		jump = false;
-		jumpHeight = 0;
-	}
+    if (!collision) {
+        if (charY + (gravityDirection * velocity) > windowHeight) {
+            charDead(charX, charY)
+        }
+        if (charY + (gravityDirection * velocity) < 0) {
+            charY = charY;
+        }
+        charY = charY + (gravityDirection * velocity);
+    } else {
+        jump = false;
+        jumpHeight = 0;
+    }
 
-	if (jumpHeight) {
-		jumpHeight -= 2 ;
-	} else {
-		jumpHeight = 0;
-		gravityDirection = 1;
-		velocity = fallingSpeed;
-	}
+    if (jumpHeight) {
+        jumpHeight -= 2;
+    } else {
+        jumpHeight = 0;
+        gravityDirection = 1;
+        velocity = fallingSpeed;
+    }
 }
+
 function game() {
-	if (keyIsDown(LEFT_ARROW) && !isCollision(charX-charWidth/2, charY, 'left', -velocity) && charX-charWidth/2 > 0) {
-		changeCharPos(-velocity,0)
-		if (jump) {
-			jumpLeft(charX, charY)
-		} else {
-			moveLeft(charX, charY)
-		}
-	} else if (keyIsDown(RIGHT_ARROW) && !isCollision(charX+charWidth/2, charY, 'right', velocity) && charX+charWidth/2 < windowWidth) {
-		changeCharPos(velocity,0)
-		if (jump) {
-			jumpRight(charX, charY)
-		} else {
-			moveRight(charX, charY)
-		}
-	} else if (jump) {
-		jumpFront(charX, charY)
-	} else {
-		charIdle(charX, charY)
-	}
+    initInterval();
+    drawLightBackground();
+    if (keyIsDown(LEFT_ARROW) && !isCollision(charX - charWidth / 2, charY, 'left', -velocity) && charX - charWidth / 2 > 0) {
+        moveScreen(-velocity, 0)
+        if (jump) {
+            jumpLeft(charX, charY)
+        } else {
+            moveLeft(charX, charY)
+        }
+    } else if (keyIsDown(RIGHT_ARROW) && !isCollision(charX + charWidth / 2, charY, 'right', velocity) && charX + charWidth / 2 < width) {
+        moveScreen(velocity, 0)
+        if (jump) {
+            jumpRight(charX, charY)
+        } else {
+            moveRight(charX, charY)
+        }
+    } else if (jump) {
+        jumpFront(charX, charY)
+    } else {
+        charIdle(charX, charY)
+    }
 
-	checkCollections();
-
-}
-function changeCharPos(x,y) {
-	if (typeof x === 'number' && typeof y === "number") {
-		charX += x;
-		charY += y;
-	}
-}
-function isCollision(x,y, direction, distance) {
-	return collisionMap.some(cord => {
-		var isInX;
-		var isInY;
-		var minX = min(cord[0], cord[2]);
-		var minY = min(cord[1], cord[3]);
-		var maxX = max(cord[0], cord[2]);
-		var maxY = max(cord[1], cord[3]);
-
-		if (direction === 'left' || direction === 'right') {
-			isInX = x + distance > minX && x + distance < maxX
-			isInY = y > minY && y < maxY
-
-			return isInX && isInY
-		} else if (direction === 'jump') {
-			// isInY = y + distance > minY && y < maxY
-			// return isInY
-		} else if (direction === 'fall') {
-			isInX = x > minX && x < maxX
-			isInY = y + distance > minY && y + distance < maxY
-
-			return isInX && isInY
-		}
-
-		return false;
-	});
-}
-function initCollisionMap(map) {
-	map.push([100, windowHeight - 150, windowWidth, windowHeight]); // ground
-	map.push([200, windowHeight-200, 250, windowHeight - 150])
-	map.push([250, windowHeight-200, 300, windowHeight - 150])
-	map.push([300, windowHeight-200, 350, windowHeight - 150])
-	map.push([270, windowHeight-250, 320, windowHeight - 200])
-	map.push([windowWidth - 300, windowHeight/2, windowWidth, windowHeight/2 + 50]) // platform
-	map.push([windowWidth - 500, windowHeight/3*2, windowWidth - 300, windowHeight/3*2+50]) // platform
-	if (debug) {
-		rectMode(CORNER);
-		noFill()
-		fill(255,0,0,150);
-		stroke(55);
-		rect(100, windowHeight - 150, windowWidth - 100, 150) // ground
-		rect(200, windowHeight-200, 50, 50) // box
-		rect(250, windowHeight-200, 50, 50) // box
-		rect(300, windowHeight-200, 50, 50) // box
-		rect(270, windowHeight-250, 50, 50) // box
-		rect(windowWidth - 300, windowHeight/2, 300, 50)
-		rect(windowWidth - 500, windowHeight/3*2, 200, 50)
-		noFill();
-		noStroke()
-		rectMode(CENTER);
-	}
+    // checkCollections();
 
 }
-function initCollectionMap(map) {
-	map.push([150, windowHeight - 170])
-	map.push([windowWidth - 100, windowHeight/2 - 20 ])
+
+function changeCharPos(x, y) {
+    if (typeof x === 'number' && typeof y === "number") {
+        charX += x;
+        charY += y;
+    }
 }
-function initDangerMap() {
-	dangerMap.push([windowWidth - 500, windowHeight/3*2 - 15])
-	dangerMap.push([windowWidth - 300, windowHeight/2 - 15])
+
+function isCollision(x, y, direction, distance) {
+    return collisionMap.some(cord => {
+        var isInX;
+        var isInY;
+        var minX = min(cord[0], cord[2]);
+        var minY = min(cord[1], cord[3]);
+        var maxX = max(cord[0], cord[2]);
+        var maxY = max(cord[1], cord[3]);
+
+        if (direction === 'left' || direction === 'right') {
+            isInX = x + distance > minX && x + distance < maxX
+            isInY = y > minY && y < maxY
+
+            return isInX && isInY
+        } else if (direction === 'jump') {
+
+            isInY = y - distance < maxY && y - distance > minY
+            isInX = x > minX && x < maxX
+
+            return isInY && isInX
+        } else if (direction === 'fall') {
+            isInX = x > minX && x < maxX
+            isInY = y + distance > minY && y + distance < maxY
+
+            return isInX && isInY
+        }
+
+        return false;
+    });
 }
-function checkCollections() {
-	collectingMap = collectingMap.filter(Array.isArray).map(function (el) {
-		if (dist(charX, charY, el[0], el[1]) < 40) {
-			return undefined;
-		} else {
-			drawEnergy(el[0], el[1])
-		}
-		return el;
-	});
-	dangerMap.forEach(function (el) {
-		if (dist(charX, charY, el[0]+22, el[1]+7) < 30) {
-			stage = 1;
-			dead = true;
-		} else {
-			drawDanger(el[0], el[1])
-		}
-	})
+
+function gameOver() {
+    fill(255, 0, 0, 100);
+    rect(width / 2, height / 2, width, height)
+    fill(255, 255, 255)
+    textSize(100);
+    text('Game over', windowWidth / 2 - scrollX, windowHeight / 2 - scrollY);
+    textSize(20);
+    text('Press any button', windowWidth / 2 - scrollX, windowHeight / 2 - scrollY + 50);
+    translate(scrollX, scrollY)
+}
+
+function moveScreen(x, y) {
+    const charPosition = charX + x + scrollX;
+    const firstQuarter = windowWidth / 3
+    const lastQuarter = windowWidth / 3 * 2
+
+    if (x > 0 && charPosition > lastQuarter && (scrollX + x) * (-1) <= width - windowWidth) {
+        scrollX += -x;
+        scrollY += -y;
+    }
+    if (x < 0 && charPosition < firstQuarter && scrollX - x <= 0) {
+        scrollX -= x;
+        scrollY -= y;
+    }
+    // if (pos > sc2) {
+    // 	scrollX += -x;
+    // 	scrollY += -y;
+    // } else if (pos < sc){
+    // 	scrollX += -x;
+    // 	scrollY += -y;
+    // }
+
+    changeCharPos(x, y)
+}
+
+function initInterval() {
+    if (intervalDirection) {
+        interval++;
+        if (interval === 100) intervalDirection = 0;
+    } else {
+        interval--;
+        if (interval === 0) intervalDirection = 1;
+    }
 }
 
 // endregion
 
 // render place
-function drawDanger(x, y) {
-	image(danger, x,y, 45,15)
+function highlightCharDebug() {
+    fill(255, 0, 0, 100)
+    circle(charX, charY, 20)
+    noFill()
 }
 
-function drawPlatform(x, y, width, height, img) {
-	for(let i = x; i< x+width; i+=50){
-		for (let j=y; j< y+height; j+=50) {
-			bgCanvas.image(darkBlock1, i, j, 50,50,0,0,160,160)
-		}
-	}
+function drawLightBackground() {
+    push()
+    fill(0, 0, 0, 50)
+    rect(width / 2, height / 2, width, height)
+    fill(255, 255, 100, min(170, interval))
+    rect(width / 2, height / 2, width, height)
+    pop()
 }
 
-function drawEnergy(x, y) {
-	fill(255,0,0);
-	image(almaz,x - 20, y - 20,40,40,0,0,almaz.width, almaz.height)
-	fill(115,219,255,5);
-	for(i = 0; i < 30; i++){
-		ellipse(x,y, i*3);
-	}
-	noFill()
+function renderMap(map) {
+    translate(scrollX, scrollY);
+
+    collisionMap = [];
+
+    for (let i = 50; i < width - 500; i += 500) {
+        drawLamp(i, 0)
+    }
+
+    map.textures.forEach(t => {
+
+        if (t.texture === 'platform') {
+            drawPlatform(cw(t.x), ch(t.y), cw(t.width), ch(t.height))
+        } else if (t.texture === 'water') {
+            drawWater(cw(t.x), ch(t.y), cw(t.width), ch(t.height))
+        } else if (t.texture === 'ground') {
+            drawGround(cw(t.x), ch(t.y), cw(t.width), ch(t.height))
+        }
+
+        if (t.feel) {
+            collisionMap.push([cw(t.x), ch(t.y), cw(t.x) + cw(t.width), ch(t.y) + ch(t.height)])
+            if (debug) {
+                push();
+                rectMode(CORNER);
+                stroke(255, 0, 0, 10);
+                fill(255, 0, 0, 100)
+                strokeWeight(4)
+                rect(cw(t.x), ch(t.y), cw(t.width), ch(t.height))
+                pop()
+            }
+        }
+    })
+
+    map.collectable = map.collectable.filter((l => typeof l === 'object')).map(function (el) {
+        if (dist(charX, charY, cw(el.x), ch(el.y)) < 40) {
+            items++;
+            return undefined;
+        } else {
+            if (el.type === 'energy') drawEnergy(cw(el.x), ch(el.y), true)
+        }
+        return el;
+    });
+
+    map.danger.forEach(function (el) {
+        if (dist(charX, charY, cw(el.x) + 22, ch(el.y) - 7) < 30) {
+            charDead(charX, charY)
+        } else {
+            drawDanger(cw(el.x), ch(el.y), 45, 15)
+        }
+    })
+
+    drawItemCount()
+
 }
 
-function drawBox(x, y, width) {
-	bgCanvas.fill(219,173,0)
-	bgCanvas.stroke(50)
-	bgCanvas.square(x,y,width)
-	bgCanvas.line(x,y, x+width,y+width)
-	bgCanvas.line(x,y+width,x+width, y);
-	bgCanvas.image(blockB, x, y, width,width,0,0,160,160,'CONTAIN')
-
-	bgCanvas.noStroke();
-	bgCanvas.noFill()
+function cw(d) {
+    return windowWidth / 100 * d;
 }
 
-function drawClouds() {
-	bgCanvas.fill(255,255,255);
-	bgCanvas.ellipse(200,100, 100,50)
-	bgCanvas.ellipse(250,120, 100,50)
-	bgCanvas.ellipse(180,120, 100,50)
-
-	bgCanvas.ellipse(windowWidth - 300,80, 100,50)
-	bgCanvas.ellipse(windowWidth - 280,100, 100,50)
-	bgCanvas.ellipse(windowWidth - 350,100, 100,50)
-
-	bgCanvas.noFill()
+function ch(d) {
+    return windowHeight / 100 * d;
 }
 
-function drawFloor() {
-	bgCanvas.rect(0, windowHeight - 150, windowWidth, 150)
-	for(let i = 100; i< windowWidth; i+=50){
-		for (let j=windowHeight - 150; j< windowHeight; j+=50) {
-			if (j === windowHeight - 150) {
-				bgCanvas.image(lightBlock1, i, j, 50,50,0,0,160,160,'CONTAIN')
-			} else {
-				bgCanvas.image(lightBlock, i, j, 50,50,0,0,160,160,'CONTAIN')
-			}
-		}
-	}
-	for(let i = 0; i< 100; i+=50){
-		for (let j=windowHeight - 100; j< windowHeight; j+=50) {
-			if (j === windowHeight - 100) {
-				bgCanvas.image(water, i, j, 50,50,0,0,160,160,'CONTAIN')
-			} else {
-				bgCanvas.image(water1, i, j, 50,50,0,0,160,160,'CONTAIN')
-			}
-		}
-	}
+function drawItemCount() {
+    push()
+    drawEnergy(25 - scrollX, 38, false)
+    textSize(20)
+    fill(0, 90, 255)
+    text(items.toString(), 55 - scrollX, 30)
+    pop()
+}
+
+function drawEnergy(cordX, cordY, isShining) {
+    var x = cordX;
+    var y = cordY - 15
+
+    if (isShining) {
+        fill(115, 219, 255, 10);
+        for (i = 0; i < 30; i++) {
+            ellipse(x, y, i * 2.2);
+        }
+        noFill()
+    }
+
+    fill(0, 128, 255);
+    circle(x, y, 25)
+
+    fill(255, 255, 255, 50)
+
+    for (i = 0; i < 10; i++) {
+        ellipse(x + 5, y - 5, i);
+    }
+    noFill()
+}
+
+function drawDanger(cordX, cordY) {
+    var x = cordX;
+    var y = cordY;
+
+    push()
+    fill(255, 102, 102, 3);
+    noStroke()
+    for (i = 0; i < 30; i++) {
+        ellipse(x + 21, y - 8, i * 3);
+    }
+    noFill()
+
+    for (let i = 0; i < 42; i += 14) {
+        stroke(90)
+        if (i < 28) {
+            fill(93, 0, 0)
+            beginShape()
+
+            vertex(x + i + 7, y)
+            vertex(x + i + 14, y - 12)
+            vertex(x + i + 21, y)
+
+            endShape()
+        }
+        fill(93, 0, 0)
+        beginShape()
+
+        vertex(x + i, y)
+        vertex(x + i + 7, y - 15)
+        vertex(x + i + 14, y)
+
+        endShape()
+
+        fill(190)
+        beginShape()
+
+        vertex(x + i, y)
+        vertex(x + i + 7, y - 15)
+        vertex(x + i + 10, y - 9)
+
+        endShape()
+    }
+
+    pop()
+}
+
+function drawPlatform(x, y, width) {
+    push();
+    rectMode(CORNER);
+    fill(204, 102, 0)
+    stroke(153, 76, 0)
+    rect(x, y, width, 50);
+
+    stroke(153, 76, 0)
+    fill(255, 128, 0)
+    rect(x + 4, y + 24, width - 8, 22);
+
+    fill(255, 255, 0)
+    stroke(5)
+    rect(x, y, width, 20)
+
+    fill(0);
+    noStroke()
+
+    let count = 0;
+    for (let i = x + 4; i <= x + width - 14; i += 14) {
+        count++;
+        beginShape()
+        vertex(i + 2, y + 2)
+        vertex(i + 8, y + 2)
+        vertex(i + 14, y + 18)
+        vertex(i + 8, y + 18)
+        endShape()
+    }
+
+    pop();
+}
+
+function drawWater(x, y, width) {
+    push();
+    rectMode(CORNER);
+    fill(102, 178, 255)
+
+    rect(x, y, width, height)
+    fill(255)
+    rect(x, y, width, 5)
+    fill(153, 204, 255)
+    rect(x, y + 5, width, 5)
+
+    pop();
+}
+
+function drawGround(x, y, width) {
+    push();
+    rectMode(CORNER);
+    fill(96)
+
+    rect(x, y, width, height)
+    fill(50)
+    rect(x, y, width, 15)
+    fill(64)
+    rect(x, y + 15, width, 20)
+
+    pop();
+}
+
+function drawLamp(x, y) {
+    push();
+
+    fill(255, 250, 0, max(100, interval * 2.5))
+    stroke(90)
+    circle(x, y + 5, 30)
+
+    fill(255, 250, 0)
+    noStroke()
+    circle(x, y + 5, 10)
+
+    fill(90)
+    rect(x, y, 40, 10)
+
+    pop();
 }
